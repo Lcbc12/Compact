@@ -4,32 +4,34 @@ contract('Compact', function(accounts) {
     client = accounts[0];
     server = accounts[1];
 
+    // estimated gas cost: 175522
     it("should send a challenge", async function() {
         let contract = await Compact.deployed();
-        await contract.challenge(2, 418, {from:client});
+        await contract.challenge([1, 1], [467, 491], {from:client});
         let challenge_nu = 
             (
-                await contract.index_challenges(
+                await contract.getChallenge(
                     await contract.getChallengesLength()
                 )
-            ).nu;
-        await assert.equal(418, challenge_nu, "Challenge not sent");
+            ).nu[0];
+        await assert.equal(challenge_nu, 467, "Challenge not sent");
     });
 
+    // estimated gas cost: 313922
     it("should verify the proof", async function() {
         let contract = await Compact.deployed();
         await contract.proof(
-            45144,
-            web3.utils.toBN("18406874792596278302199111963446125795395919970852221058561807340620231197048"),
-            web3.utils.toBN("14613361525272065441192946791976026129725287577577546941926976800957822849950"),
+            [103464, 92926],
+            web3.utils.toBN("19008947739600984228044157580001253402267228866197661222896813637769210210538"),
+            web3.utils.toBN("12063506687536463007474726253078490541120193933064005433064625988901485573508"),
             {from:server}
         );
         let result = 
             (
-                await contract.index_proofs(
+                await contract.getProof(
                     await contract.getProofsLength()
                 )
             ).valid;
-        await assert.equal(true, result, "Proof not valid");
+        await assert.equal(result, true, "Proof not valid");
     });
 });
