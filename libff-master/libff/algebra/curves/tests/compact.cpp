@@ -17,9 +17,56 @@
 #include <unistd.h>
 
 #define PATH_DIR "results/"
+#define DEBUG false
 
 using namespace libff;
 using namespace std;
+
+/**
+ * Safe function to open a file given in parameter
+ * Throw an exception if the file is eventually not opened
+ * @param path file path to open
+ * @throw exception if the file can NOT be opened
+ * @return an open ifstream of the file path given
+ */
+ifstream safeOpenIn(string path) {
+    ifstream is_file;
+
+    try {
+        is_file.open(path, ios::binary | ios::in);
+        if(!is_file) {
+            throw ifstream::failure("File "+ path +" not found");
+        }
+    } catch (const ifstream::failure& e) {
+        is_file.close();
+        throw ifstream::failure(e);
+    }
+
+    return is_file;
+}
+
+/**
+ * Safe function to open a file given in parameter
+ * Throw an exception if the file is eventually not opened
+ * @param path file path to open
+ * @throw exception if the file can NOT be opened
+ * @return an open ofstream of the file path given
+ */
+ofstream safeOpenOut(string path) {
+    ofstream os_file;
+
+    try {
+        os_file.open(path, ios::binary | ios::out);
+        if(!os_file) {
+            throw ofstream::failure("Path "+ path +" to file where to write not found");
+        }
+    } catch (const ofstream::failure& e) {
+        os_file.close();
+        throw ofstream::failure(e.what());
+    }
+
+    return os_file;
+}
 
 /**
  * Read data, a Fr point, in the file specifies in path
@@ -29,12 +76,17 @@ using namespace std;
 template<typename ppT>
 Fr<ppT> readFr(string path)
 {
-    //TODO exceptions
+    ifstream is_file;
     Fr<ppT> toReturn;
-    ifstream is_file(PATH_DIR + path, ios::binary | ios::in);
-    is_file.read((char*) &toReturn, sizeof(Fr<ppT>));
-    is_file.close();
 
+    try {
+        is_file = safeOpenIn(PATH_DIR + path);
+        is_file.read((char*) &toReturn, sizeof(Fr<ppT>));
+    } catch (const ifstream::failure& e) {
+        throw ifstream::failure(e);
+    }
+
+    is_file.close();
     return toReturn;
 }
 
@@ -46,15 +98,18 @@ Fr<ppT> readFr(string path)
 template<typename ppT>
 G1<ppT> readG1(string path)
 {
-    //TODO exceptions
-    alt_bn128_Fq X;
-    alt_bn128_Fq Y;
-    alt_bn128_Fq Z;
+    alt_bn128_Fq X, Y, Z;
+    ifstream is_file;
 
-    ifstream is_file(PATH_DIR + path, ios::binary | ios::in);
-    is_file.read((char*) &X, sizeof(alt_bn128_Fq));
-    is_file.read((char*) &Y, sizeof(alt_bn128_Fq));
-    is_file.read((char*) &Z, sizeof(alt_bn128_Fq));
+    try {
+        is_file = safeOpenIn(PATH_DIR + path);
+        is_file.read((char*) &X, sizeof(alt_bn128_Fq));
+        is_file.read((char*) &Y, sizeof(alt_bn128_Fq));
+        is_file.read((char*) &Z, sizeof(alt_bn128_Fq));
+    } catch (const ifstream::failure& e) {
+        throw ifstream::failure(e);
+    }
+
     is_file.close();
     return alt_bn128_G1(X, Y, Z);
 }
@@ -69,16 +124,19 @@ G1<ppT> readG1(string path)
 template<typename ppT>
 G1<ppT> readG1Pos(string path, unsigned long long int position)
 {
-    //TODO exceptions
-    alt_bn128_Fq X;
-    alt_bn128_Fq Y;
-    alt_bn128_Fq Z;
+    alt_bn128_Fq X, Y, Z;
+    ifstream is_file;
 
-    ifstream is_file(PATH_DIR + path, ios::binary | ios::in);
-    is_file.seekg(sizeof(G1<ppT>) * position, is_file.beg);
-    is_file.read((char*) &X, sizeof(alt_bn128_Fq));
-    is_file.read((char*) &Y, sizeof(alt_bn128_Fq));
-    is_file.read((char*) &Z, sizeof(alt_bn128_Fq));
+    try {
+        is_file = safeOpenIn(PATH_DIR + path);
+        is_file.seekg(sizeof(G1<ppT>) * position, is_file.beg);
+        is_file.read((char*) &X, sizeof(alt_bn128_Fq));
+        is_file.read((char*) &Y, sizeof(alt_bn128_Fq));
+        is_file.read((char*) &Z, sizeof(alt_bn128_Fq));
+    } catch(const ifstream::failure& e) {
+        throw ifstream::failure(e);
+    }
+    
     is_file.close();
     return alt_bn128_G1(X, Y, Z);
 }
@@ -91,15 +149,18 @@ G1<ppT> readG1Pos(string path, unsigned long long int position)
 template<typename ppT>
 G2<ppT> readG2(string path)
 {
-    //TODO exceptions
-    alt_bn128_Fq2 X;
-    alt_bn128_Fq2 Y;
-    alt_bn128_Fq2 Z;
+    alt_bn128_Fq2 X, Y, Z;
+    ifstream is_file;
 
-    ifstream is_file(PATH_DIR + path, ios::binary | ios::in);
-    is_file.read((char*) &X, sizeof(alt_bn128_Fq2));
-    is_file.read((char*) &Y, sizeof(alt_bn128_Fq2));
-    is_file.read((char*) &Z, sizeof(alt_bn128_Fq2));
+    try {
+        is_file = safeOpenIn(PATH_DIR + path);
+        is_file.read((char*) &X, sizeof(alt_bn128_Fq2));
+        is_file.read((char*) &Y, sizeof(alt_bn128_Fq2));
+        is_file.read((char*) &Z, sizeof(alt_bn128_Fq2));
+    } catch(const ifstream::failure& e) {
+        throw ifstream::failure(e);
+    }
+
     is_file.close();
     return alt_bn128_G2(X, Y, Z);
 }
@@ -112,9 +173,15 @@ G2<ppT> readG2(string path)
 template<typename ppT>
 void writeFr(string path, Fr<ppT> data)
 {
-    //TODO exceptions
-    ofstream os_file(PATH_DIR + path, ios::binary| ios::out);
-    os_file.write((char*) &data, sizeof(Fr<ppT>));
+    ofstream os_file;
+
+    try {
+        os_file = safeOpenOut(PATH_DIR + path);
+        os_file.write((char*) &data, sizeof(Fr<ppT>));
+    } catch(const ofstream::failure& e) {
+        throw ofstream::failure(e);
+    }
+
     os_file.close();
 }
 
@@ -126,15 +193,20 @@ void writeFr(string path, Fr<ppT> data)
 template<typename ppT>
 void writeG1(string path, G1<ppT> data)
 {
-    //TODO exceptions
-    ofstream os_file(PATH_DIR + path, ios::binary| ios::out);
+    ofstream os_file;
     alt_bn128_Fq p = data.X;
+    
+    try {
+        os_file = safeOpenOut(PATH_DIR + path);
+        os_file.write((char*) &p, sizeof(alt_bn128_Fq));
+        p = data.Y;
+        os_file.write((char*) &p, sizeof(alt_bn128_Fq));
+        p = data.Z;
+        os_file.write((char*) &p, sizeof(alt_bn128_Fq));
+    } catch(const ofstream::failure& e) {
+        throw ofstream::failure(e);
+    }
 
-    os_file.write((char*) &p, sizeof(alt_bn128_Fq));
-    p = data.Y;
-    os_file.write((char*) &p, sizeof(alt_bn128_Fq));
-    p = data.Z;
-    os_file.write((char*) &p, sizeof(alt_bn128_Fq));
     os_file.close();
 }
 
@@ -146,15 +218,20 @@ void writeG1(string path, G1<ppT> data)
 template<typename ppT>
 void writeG2(string path, G2<ppT> data)
 {
-    //TODO exceptions
-    ofstream os_file(PATH_DIR + path, ios::binary| ios::out);
+    ofstream os_file;
     alt_bn128_Fq2 p = data.X;
 
-    os_file.write((char*) &p, sizeof(alt_bn128_Fq2));
-    p = data.Y;
-    os_file.write((char*) &p, sizeof(alt_bn128_Fq2));
-    p = data.Z;
-    os_file.write((char*) &p, sizeof(alt_bn128_Fq2));
+    try {
+        os_file = safeOpenOut(PATH_DIR + path);
+        os_file.write((char*) &p, sizeof(alt_bn128_Fq2));
+        p = data.Y;
+        os_file.write((char*) &p, sizeof(alt_bn128_Fq2));
+        p = data.Z;
+        os_file.write((char*) &p, sizeof(alt_bn128_Fq2));
+    } catch(const ofstream::failure& e) {
+        throw ofstream::failure(e);
+    }
+
     os_file.close();
 }
 
@@ -172,37 +249,46 @@ void writeG2(string path, G2<ppT> data)
 template<typename ppT>
 int initialization(unsigned long long int s)
 {
-    //TODO exceptions
-    G1<ppT> g1 = G1<ppT>::one();
-    G2<ppT> g2 = G2<ppT>::one();
+    Fr<ppT> sk = Fr<ppT>::random_element(),
+            name = Fr<ppT>::random_element();
     
-    Fr<ppT> sk = Fr<ppT>::random_element();
-    writeFr<ppT>("sk.bin", sk);
+    G1<ppT> g1 = G1<ppT>::one(),
+            u;
 
-    G2<ppT> pk = sk * g2;
-    g2.print();
-    cout << "pk = ";
-    pk.print();
-    writeG2<ppT>("pk.bin", pk);
+    G2<ppT> g2 = G2<ppT>::one(),
+            pk = sk * g2;
+    
+    ofstream os_u;
 
-    Fr<ppT> name = Fr<ppT>::random_element();
-    cout << "name = ";
-    name.print();
-    writeFr<ppT>("name.bin", name);
+    string u_path;
 
-    G1<ppT> u;
-    string u_path = "u.bin";
-    ofstream os_u(PATH_DIR + u_path, ios::binary| ios::out);
-    for(unsigned long long int j = 0; j < s; j++) {
-        u = Fr<ppT>::random_element() * g1;
-        cout << "u = ";
-        u.print();
-        os_u.write((char*) &u.X, sizeof(alt_bn128_Fq));
-        os_u.write((char*) &u.Y, sizeof(alt_bn128_Fq));
-        os_u.write((char*) &u.Z, sizeof(alt_bn128_Fq));
+    if (DEBUG) {cout << "sk = ";sk.print();cout << "pk = ";pk.print();cout << "name = ";name.print();}
+
+    try {
+        writeFr<ppT>("sk.bin", sk);
+        writeG2<ppT>("pk.bin", pk);
+        writeFr<ppT>("name.bin", name);
+
+        u_path = "u.bin";
+        os_u = safeOpenOut(PATH_DIR + u_path);
+
+        for(unsigned long long int j = 0; j < s; j++) {
+            u = Fr<ppT>::random_element() * g1;
+            os_u.write((char*) &u.X, sizeof(alt_bn128_Fq));
+            os_u.write((char*) &u.Y, sizeof(alt_bn128_Fq));
+            os_u.write((char*) &u.Z, sizeof(alt_bn128_Fq));
+
+            if(DEBUG) {cout << "u = ";u.print();}
+        }
+
+        os_u.close();
+    } catch (const ofstream::failure& os_e) {
+        throw ios_base::failure(os_e);
+    } catch(const std::exception& e) {
+        cerr << e.what() << endl;
+        throw std::exception();
     }
-    
-    os_u.close();
+
     return 0;
 }
 
@@ -215,46 +301,60 @@ int initialization(unsigned long long int s)
 template<typename ppT>
 int signing(string filePath, unsigned long long int s)
 {
-    //TODO exceptions
-    G1<ppT> g1 = G1<ppT>::one();
+    Fr<ppT> sk, name;
+
+    G1<ppT> g1 = G1<ppT>::one(),
+            res = g1,
+            u,
+            u_m;
+
     G2<ppT> g2 = G2<ppT>::one();
     
-    Fr<ppT> sk = readFr<ppT>("sk.bin");
-    Fr<ppT> name = readFr<ppT>("name.bin");
-    G1<ppT> u;
-
+    int i = 0;
     unsigned int m = 0;
     unsigned long long int loop = 0;
-    G1<ppT> res = g1;
-    G1<ppT> u_m;
+
     bool stop = false;
-    int i = 0;
 
-    ifstream is_to_sign(filePath, ios::binary | ios::in);
-    ofstream os_signature("results/signature.bin", ios::binary| ios::out);
-    is_to_sign.seekg(0, is_to_sign.beg);
+    ifstream is_to_sign;
+    ofstream os_signature;
 
-    while (true) { // size / s
-        u_m = G1<ppT>::zero();
+    try {
+        sk = readFr<ppT>("sk.bin");
+        name = readFr<ppT>("name.bin");
+        is_to_sign = safeOpenIn(filePath);
+        is_to_sign.seekg(0, is_to_sign.beg);
+        os_signature = safeOpenOut("results/signature.bin");
 
-        for(unsigned long long j = 0; j < s; j++) {
-        is_to_sign.read((char*)&m, 1);
-        if (is_to_sign.eof()) {
-            stop = true;
-            break;
+        while (true) { // size / s
+            u_m = G1<ppT>::zero();
+
+            for(unsigned long long j = 0; j < s; j++) {
+                is_to_sign.read((char*)&m, 1);
+                if (is_to_sign.eof()) {
+                    stop = true;
+                    break;
+                }
+
+                u = readG1Pos<ppT>("u.bin", j);
+                u_m = u_m + (Fr<ppT>(m) * u);
+            }
+
+            if (stop) break;
+            res = sk * (((Fr<ppT>(loop) * name) * g1) + u_m);
+
+            if(DEBUG) {cout << "signature : "; res.print();}
+            os_signature.write((char*)&res.X, sizeof(alt_bn128_Fq));
+            os_signature.write((char*)&res.Y, sizeof(alt_bn128_Fq));
+            os_signature.write((char*)&res.Z, sizeof(alt_bn128_Fq));
+            loop++;
         }
 
-        u = readG1Pos<ppT>("u.bin", j);
-        u_m = u_m + (Fr<ppT>(m) * u);
-        }
-
-        if (stop) break;
-        res = sk * (((Fr<ppT>(loop) * name) * g1) + u_m);
-
-        os_signature.write((char*)&res.X, sizeof(alt_bn128_Fq));
-        os_signature.write((char*)&res.Y, sizeof(alt_bn128_Fq));
-        os_signature.write((char*)&res.Z, sizeof(alt_bn128_Fq));
-        loop++;
+    } catch(const std::ios_base::failure& ios_e) {
+        throw ios_base::failure(ios_e);
+    } catch(const std::exception& e) {
+        cerr << e.what() << endl;
+        throw std::exception();
     }
 
     os_signature.close();
@@ -267,27 +367,33 @@ int signing(string filePath, unsigned long long int s)
  *  - i, random integer as 0 <= i <= file_size/s
  *  - nu, random integer as <= nu
  * Creates a challenge file containing all the challenges
- * @param path path to file we want to challenge (it gives its size)
+ * @param size file size we want to challenge
  * @param c number of challenges to generate
  * @param s size of chunks in bytes
  */
-int challenging(string path, unsigned int c, unsigned long long int s) 
+int challenging(unsigned long long int size, unsigned int c, unsigned long long int s) 
 {
-    //TODO exceptions
     unsigned long long int i = 1;
-    unsigned int v = 1;
-    ifstream is_file(path, std::ifstream::ate | std::ifstream::binary);
-    unsigned long long int taille = is_file.tellg();
-    is_file.close();
+    unsigned int nu = 1;
+    
+    ofstream os_challenge;
 
-    ofstream os_challenge("results/challenge.bin", ios::binary| ios::out);  
-    for (int j = 0; j < c; j++) {
-        i = rand() % (taille/s);
-        v = rand() % 500;
-        cout << "i = " << to_string(i) << " | v = " << to_string(v) << endl;
+    try {
+        os_challenge = safeOpenOut("results/challenge.bin");
 
-        os_challenge.write((char*) &i, sizeof(unsigned long long int));
-        os_challenge.write((char*) &v, sizeof(unsigned int));
+        for (int j = 0; j < c; j++) {
+            i = rand() % (size/s);
+            nu = rand() % 500;
+            if(DEBUG) {cout << "i = " << to_string(i) << " | nu = " << to_string(nu) << endl;}
+
+            os_challenge.write((char*) &i, sizeof(unsigned long long int));
+            os_challenge.write((char*) &nu, sizeof(unsigned int));
+        }
+    } catch(const ios_base::failure& ios_e) {
+        throw ios_base::failure(ios_e);
+    } catch(const std::exception& e) {
+        cerr << e.what() << endl;
+        throw std::exception();
     }
 
     os_challenge.close();
@@ -304,46 +410,52 @@ int challenging(string path, unsigned int c, unsigned long long int s)
 template<typename ppT>
 int proving(string filePath, unsigned int c, unsigned long long int s)
 {
-    //TODO exceptions
     unsigned long long int i = 1;
-    unsigned int v = 1;
+    unsigned int nu = 1,
+                 m = 0,
+                 mu;
+    G1<ppT> signature, sigma;
+    ifstream is_challenge, is_file;
+    ofstream os_mu;
+    
+    try {
+        // sigma computation
+        is_challenge = safeOpenIn("results/challenge.bin");
 
-    // sigma computation
-    G1<ppT> signature;
-    G1<ppT> sigma;
-
-    ifstream is_challenge("results/challenge.bin", ios::binary| ios::in);
-    for (uint nb = 0; nb < c; nb++) {
-        is_challenge.read((char*) &i, sizeof(unsigned long long int));
-        is_challenge.read((char*) &v, sizeof(unsigned int));
-        signature = readG1Pos<ppT>("signature.bin", i);
-        sigma = sigma + (Fr<ppT>(v) * signature);
-    }
-
-    is_challenge.seekg(0, is_challenge.beg);
-    writeG1<ppT>("sigma.bin", sigma);
-    cout << "sigma = ";
-    sigma.print();
-
-    // s * mu computation
-    unsigned int m = 0;
-    unsigned int mu;
-    ifstream is_file(filePath, ios::binary | ios::in);
-    ofstream os_mu("results/mu.bin", ios::binary | ios::out);
-    for (uint j = 0; j < s; j++) {
-        mu = 0;
-        is_challenge.seekg(0, is_challenge.beg);
         for (uint nb = 0; nb < c; nb++) {
-        is_challenge.read((char*) &i, sizeof(unsigned long long int));
-        is_challenge.read((char*) &v, sizeof(unsigned int));
-        is_file.seekg(i*s+j, is_file.beg);
-        is_file.read((char*)&m, 1);
-        mu += v * m;
+            is_challenge.read((char*) &i, sizeof(unsigned long long int));
+            is_challenge.read((char*) &nu, sizeof(unsigned int));
+            signature = readG1Pos<ppT>("signature.bin", i);
+            sigma = sigma + (Fr<ppT>(nu) * signature);
         }
 
-        cout << "mu = " << to_string(mu) << endl;
-        os_mu.write((char*)&mu, sizeof(unsigned int));
-    } 
+        is_challenge.seekg(0, is_challenge.beg);
+        writeG1<ppT>("sigma.bin", sigma);
+        if(DEBUG) {cout << "sigma = ";sigma.print();}
+
+        // s * mu computation
+        is_file = safeOpenIn(filePath);
+        os_mu = safeOpenOut("results/mu.bin");
+        for (uint j = 0; j < s; j++) {
+            mu = 0;
+            is_challenge.seekg(0, is_challenge.beg);
+            for (uint nb = 0; nb < c; nb++) {
+                is_challenge.read((char*) &i, sizeof(unsigned long long int));
+                is_challenge.read((char*) &nu, sizeof(unsigned int));
+                is_file.seekg(i*s+j, is_file.beg);
+                is_file.read((char*)&m, 1);
+                mu += nu * m;
+            }
+
+            if(DEBUG) {cout << "mu = " << to_string(mu) << endl;}
+            os_mu.write((char*)&mu, sizeof(unsigned int));
+        } 
+    } catch(const ios_base::failure& ios_e) {
+        throw ios_base::failure(ios_e);
+    } catch(const std::exception& e) {
+        cerr << e.what() << endl;
+        throw std::exception();
+    }
 
     os_mu.close();
     is_file.close();
@@ -362,49 +474,72 @@ int proving(string filePath, unsigned int c, unsigned long long int s)
 template<typename ppT>
 bool verifying(unsigned int c, unsigned long long int s)
 {
-    G1<ppT> g1 = G1<ppT>::one();
-    G2<ppT> g2 = G2<ppT>::one();
+    Fr<ppT> name;
+
+    G1<ppT> g1 = G1<ppT>::one(),
+            u,
+            res_u,
+            sigma,
+            res_h,
+            res_right;
+            
+    G2<ppT> g2 = G2<ppT>::one(),
+            pk;
+
+    GT<ppT> part1, part2;
 
     unsigned long long int i = 1;
-    unsigned int v = 1;
-
-    // Get the proof
-    G1<ppT> sigma = readG1<ppT>("sigma.bin");
-
-    // Get metadata
-    Fr<ppT> name = readFr<ppT>("name.bin");
-    G2<ppT> pk = readG2<ppT>("pk.bin");
-
-    // First part to computre
-    GT<ppT> part1 = ppT::reduced_pairing(sigma, g2);
-    
-    // Second part
-    ifstream is_mu("results/mu.bin", ios::binary | ios::in);
+    unsigned int nu = 1;
     unsigned int mu = 0;
-    G1<ppT> res_u;
-    G1<ppT> u;
-    for (uint j = 0; j < s; j++) {
-        u = readG1Pos<ppT>("u.bin", j);
-        is_mu.read((char*)&mu, sizeof(unsigned int));
-        res_u = res_u + (Fr<ppT>(mu) * u);
+
+    ifstream is_challenge, is_mu;
+
+    try {
+        // Get the proof
+        sigma = readG1<ppT>("sigma.bin");
+
+        // Get metadata
+        name = readFr<ppT>("name.bin");
+        pk = readG2<ppT>("pk.bin");
+
+        // First part to computre
+        part1 = ppT::reduced_pairing(sigma, g2);
+        
+        // Second part
+        is_mu = safeOpenIn("results/mu.bin");
+        for (uint j = 0; j < s; j++) {
+            u = readG1Pos<ppT>("u.bin", j);
+            is_mu.read((char*)&mu, sizeof(unsigned int));
+            res_u = res_u + (Fr<ppT>(mu) * u);
+        }
+
+        is_mu.close();
+
+        is_challenge = safeOpenIn("results/challenge.bin");
+        is_challenge.seekg(0, is_challenge.beg);
+
+        res_h = G1<ppT>::zero();
+        for (uint nb = 0; nb < c; nb++) {
+            is_challenge.read((char*) &i, sizeof(unsigned long long int));
+            is_challenge.read((char*) &nu, sizeof(unsigned int));
+            res_h = res_h + (Fr<ppT>(nu) * (Fr<ppT>(name * i) * g1));
+        }
+
+        is_challenge.close();
+
+        res_right = res_h + res_u;
+        part2 = ppT::reduced_pairing(res_right, pk);
+
+        return part1 == part2;
+
+    } catch(const ios_base::failure& ios_e) {
+        throw ios_base::failure(ios_e);
+    } catch(std::exception& e) {
+        cerr << e.what() << endl;
+        throw std::exception();
     }
+}
 
-    is_mu.close();
-
-    ifstream is_challenge("results/challenge.bin", ios::binary| ios::in);
-    is_challenge.seekg(0, is_challenge.beg);
-
-    G1<ppT> res_h = G1<ppT>::zero();
-    for (uint nb = 0; nb < c; nb++) {
-        is_challenge.read((char*) &i, sizeof(unsigned long long int));
-        is_challenge.read((char*) &v, sizeof(unsigned int));
-        res_h = res_h + (Fr<ppT>(v) * (Fr<ppT>(name * i) * g1));
-    }
-
-    is_challenge.close();
-
-    G1<ppT> res_right = res_h + res_u;
-    GT<ppT> part2 = ppT::reduced_pairing(res_rightt
 
 // In order to compile: g++ -o compact compact.cpp -I ~/.local/include/ -L ~/.local/lib/ -lff -lgmp
 /**
@@ -418,36 +553,58 @@ bool verifying(unsigned int c, unsigned long long int s)
  */
 int main(int argc, char *argv[])
 {
-    //TODO more exceptions...
     if (argc != 4) {
         cerr << "How to use : ./compact [file_path] [chunks_size (=s)] [nb_challenges (=c)]" << endl;
         return -1;
     }
-    
-    srand((unsigned int)time(NULL));
-    alt_bn128_pp::init_public_params();
-    
-    unsigned long long int s = atoi(argv[2]);
-    unsigned int c = atoi(argv[3]);
-    
-    cout << "Initializing..." << endl;
-    initialization<alt_bn128_pp>(s);
-    
-    cout << "Signing..." << endl;
-    signing<alt_bn128_pp>(argv[1], s);
 
-    cout << "Challenging..." << endl;
-    challenging(argv[1], c, s);
-    
-    cout << "Proving..." << endl;
-    proving<alt_bn128_pp>(argv[1], c, s);
+    unsigned long long int s;
+    unsigned int c;
+    ifstream is_to_sign;
+    unsigned long long int size;
 
-    cout << "Verifying..." << endl;
-    if (verifying<alt_bn128_pp>(c, s)) {
-        cout << "Proof is correct!" << endl;
-    } else {
-        cerr << "Error: proof is NOT correct!" << endl;
+    try {
+        // trying to open the file to sign and retrieving its size
+        is_to_sign = safeOpenIn(argv[1]);
+        is_to_sign.seekg(0, ios::end);
+        size = is_to_sign.tellg();
+        is_to_sign.close();
+
+        s = stoi(argv[2]);
+        c = stoi(argv[3]);
+
+        if (s > size) {
+            cerr << "Error: size of chunks (s) must be inferior to file size" << endl;
+            throw std::exception();
+        }
+
+        srand((unsigned int)time(NULL));
+        alt_bn128_pp::init_public_params();
+        
+        if(DEBUG) cout << "Initializing..." << endl;
+        initialization<alt_bn128_pp>(s);
+        
+        if(DEBUG) cout << "Signing..." << endl;
+        signing<alt_bn128_pp>(argv[1], s);
+
+        if(DEBUG) cout << "Challenging..." << endl;
+        challenging(size, c, s);
+        
+        if(DEBUG) cout << "Proving..." << endl;
+        proving<alt_bn128_pp>(argv[1], c, s);
+
+        if(DEBUG) cout << "Verifying..." << endl;
+        if (verifying<alt_bn128_pp>(c, s)) {
+            cout << "Proof is correct!" << endl;
+        } else {
+            cerr << "Error: proof is NOT correct!" << endl;
+        }
+    } catch(const ios_base::failure& ios_e) {
+        cerr << "IOS Error: " << ios_e.what() << endl;
+        return -1;
+    } catch(const std::exception& e) {
+        cerr << "Error: " << e.what() << endl;
+        return -1;
     }
-
     return 0;
 }
