@@ -9,16 +9,18 @@
 #include <libff/algebra/curves/mnt/mnt4/mnt4_pp.hpp>
 #include <libff/algebra/curves/mnt/mnt6/mnt6_pp.hpp>
 
-#include <iostream>
+#include <chrono>
 #include <fstream>
+#include <iostream>
+#include <jsoncpp/json/json.h>
 #include <stdlib.h>
 #include <string>
-
 #include <unistd.h>
 
 #define PATH_DIR "results/"
 #define DEBUG false
 
+using namespace std::chrono;
 using namespace libff;
 using namespace std;
 
@@ -66,6 +68,28 @@ ofstream safeOpenOut(string path) {
     }
 
     return os_file;
+}
+
+/**
+ * Get the size of the file given in parameter
+ * @param path the path to the file we want the size
+ * @return the size of the file
+ */
+unsigned long long int getSize(string path) {
+    ifstream is_file;
+    unsigned long long int size;
+
+    try {
+        is_file = safeOpenIn(path);
+        is_file.seekg(0, ios::end);
+        size = is_file.tellg();
+        is_file.close();
+    } catch(const ifstream::failure& e) {
+        is_file.close();
+        throw ifstream::failure(e);
+    }
+
+    return size;
 }
 
 /**
@@ -541,7 +565,7 @@ bool verifying(unsigned int c, unsigned long long int s)
 }
 
 
-// In order to compile: g++ -o compact compact.cpp -I ~/.local/include/ -L ~/.local/lib/ -lff -lgmp
+// To compile: g++ -o compact compact.cpp -I ~/.local/include/ -L ~/.local/lib/ -lff -lgmp -ljsoncpp
 /**
  * Full Public Compact Proof of Retrievability protocol
  * Except verification step, every step generates files in order to store
@@ -553,15 +577,23 @@ bool verifying(unsigned int c, unsigned long long int s)
  */
 int main(int argc, char *argv[])
 {
-    if (argc != 4) {
-        cerr << "How to use : ./compact [file_path] [chunks_size (=s)] [nb_challenges (=c)]" << endl;
+    if (argc != 6) {
+        cerr << "How to use : ./compact <file_path> <chunks_size_min> (=s_min) <chunks_size_max> (=s_max) <interval> <nb_challenges> (=c)" << endl;
         return -1;
     }
 
-    unsigned long long int s;
+    uint nb_valid = 0;
     unsigned int c;
     ifstream is_to_sign;
-    unsigned long long int size;
+    ifstream is_file;
+    unsigned long long int s_min,
+                           s_max,
+                           interval,
+                           size,
+                           init_size,
+                           proof_size,
+                           challenge_size,
+                           signature_size;
 
     try {
         // trying to open the file to sign and retrieving its size
@@ -570,35 +602,109 @@ int main(int argc, char *argv[])
         size = is_to_sign.tellg();
         is_to_sign.close();
 
-        s = stoi(argv[2]);
-        c = stoi(argv[3]);
+        // write times in a CSV file
+        FILE *os_times = fopen("results/benchmarks.csv", "w");
+        fprintf(os_times, "algo,size,s,clients,exec_time,init_time,signing_time,challenging_time,proving_time,verif_time,init_size,signing_size,challenging_size,proving_size\n");
 
-        if (s > size) {
-            cerr << "Error: size of chunks (s) must be inferior to file size" << endl;
+        s_min = stoi(argv[2]);
+        s_max = stoi(argv[3]);
+        interval = stoi(argv[4]);
+        c = stoi(argv[5]);
+
+        if (s_max > size) {
+            cerr << "Error: size of chunks (s_max) must be inferior to file size" << endl;
             throw std::exception();
         }
 
         srand((unsigned int)time(NULL));
         alt_bn128_pp::init_public_params();
-        
-        if(DEBUG) cout << "Initializing..." << endl;
-        initialization<alt_bn128_pp>(s);
-        
-        if(DEBUG) cout << "Signing..." << endl;
-        signing<alt_bn128_pp>(argv[1], s);
 
-        if(DEBUG) cout << "Challenging..." << endl;
-        challenging(size, c, s);
-        
-        if(DEBUG) cout << "Proving..." << endl;
-        proving<alt_bn128_pp>(argv[1], c, s);
+        for(unsigned long long int i = s_min; i <= s_max; i+=interval) {
+            
+            if(DEBUG) cout << "Loop n°" << to_string(i) << endl;
 
-        if(DEBUG) cout << "Verifying..." << endl;
-        if (verifying<alt_bn128_pp>(c, s)) {
-            cout << "Proof is correct!" << endl;
-        } else {
-            cerr << "Error: proof is NOT correct!" << endl;
+            if(DEBUG) cout << "Initializing..." << endl;
+            auto time_start = high_resolution_clock::now();
+            initialization<alt_bn128_pp>(i);
+            
+            if(DEBUG) cout << "Signing..." << endl;
+            auto time_sign = high_resolution_clock::now();
+            signing<alt_bn128_pp>(argv[1], i);
+
+            if(DEBUG) cout << "Challenging..." << endl;
+            auto time_challenge = high_resolution_clock::now();
+            challenging(size, c, i);
+            
+            if(DEBUG) cout << "Proving..." << endl;
+            auto time_proof = high_resolution_clock::now();
+            proving<alt_bn128_pp>(argv[1], c, i);
+
+            if(DEBUG) cout << "Verifying..." << endl;
+            auto time_verify = high_resolution_clock::now();
+            if (verifying<alt_bn128_pp>(c, i)) {
+                cout << "Proof is correct!" << endl;
+                nb_valid++;
+            } else {
+                cerr << "Error: proof is NOT correct!" << endl;
+            }
+
+            auto time_stop = high_resolution_clock::now();
+
+            init_size = getSize("results/name.bin");
+            init_size += getSize("results/u.bin");
+            init_size += getSize("results/pk.bin");
+            init_size += getSize("results/sk.bin");
+
+            signature_size = getSize("results/signature.bin");
+
+            challenge_size = getSize("results/challenge.bin");
+
+            proof_size = getSize("results/sigma.bin");
+            proof_size += getSize("results/mu.bin");
+
+            unsigned int exec_time = duration_cast<seconds>(time_stop - time_start).count();
+            fprintf(
+                os_times,
+                "compact,%lli,%lli,1,%li,%li,%li,%li,%li,%li,%lli,%lli,%lli,%lli\n",
+                size, i,
+                duration_cast<seconds>(time_stop - time_start).count(),
+                duration_cast<seconds>(time_sign - time_start).count(),
+                duration_cast<seconds>(time_challenge - time_sign).count(),
+                duration_cast<seconds>(time_proof - time_challenge).count(),
+                duration_cast<seconds>(time_verify - time_proof).count(),
+                duration_cast<seconds>(time_stop - time_verify).count(),
+                init_size, signature_size, challenge_size, proof_size
+            );
+
+            if (DEBUG) {
+                cout << "Execution time: " << duration_cast<seconds>(time_stop - time_start).count() << " seconds" << endl;
+                cout << "Initialization step: " << duration_cast<seconds>(time_start - time_sign).count() << " seconds" << endl;
+                cout << "Signing step: " << duration_cast<seconds>(time_challenge - time_sign).count() << " seconds" << endl;
+                cout << "Challenging step: " << duration_cast<seconds>(time_proof - time_challenge).count() << " seconds" << endl;
+                cout << "Proving step: " << duration_cast<seconds>(time_verify - time_proof).count() << " seconds" << endl;
+                cout << "Verifying step: " << duration_cast<seconds>(time_stop - time_verify).count() << " seconds" << endl;
+            }
+
+            ifstream profile("profile.json");
+            ofstream lala("profile2.json");
+
+            Json::Reader reader;
+            Json::Value obj, obj2;
+            reader.parse(profile, obj);
+
+            obj2.Value(2);
+            obj2.append(obj2.Value("lala"));
+            Json::StyledWriter writer;
+            lala << writer.write(obj2);
+            lala.close();
+
+            cout << "Last Name: " << obj["lastname"].asString() << endl;
+            cout << "First Name: " << obj["firstname"].asString() << endl;
         }
+
+        cout << to_string(nb_valid) << "/" << to_string((s_max - s_min + 1)/interval) << " proof valid" << endl;
+        fclose(os_times);
+
     } catch(const ios_base::failure& ios_e) {
         cerr << "IOS Error: " << ios_e.what() << endl;
         return -1;
@@ -606,5 +712,6 @@ int main(int argc, char *argv[])
         cerr << "Error: " << e.what() << endl;
         return -1;
     }
+
     return 0;
 }

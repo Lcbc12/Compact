@@ -1,0 +1,2 @@
+algo,size,s,clients,exec_time,init_time,signing_time,challenging_time,proving_time,verif_time,init_size,signing_size,challenging_size,proving_size
+compact,4,1,1,0,0,0,0,0,0,352,384,12,100
